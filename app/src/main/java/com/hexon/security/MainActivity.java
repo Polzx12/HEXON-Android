@@ -40,6 +40,7 @@ public class MainActivity extends Activity {
     private String currentPage = "Dashboard";
 
     private final String[][] modules = {
+        {"Nuclei Scanner", "Pemindai kerentanan berbasis template Nuclei"},
         {"Reconnaissance", "Pemetaan domain dan informasi target"},
         {"Network Scanner", "Pemeriksaan port dan konektivitas"},
         {"Web Security", "Pemeriksaan konfigurasi keamanan web"},
@@ -225,6 +226,8 @@ public class MainActivity extends Activity {
         page.addView(actions);
 
         heading("MODUL UTAMA");
+        addMenuCard("Nuclei Scanner", "Pemindaian template vulnerability",
+                () -> showPage("Nuclei Scanner"));
         addMenuCard("Reconnaissance",
                 "Pemetaan informasi target",
                 () -> showPage("Reconnaissance"));
@@ -295,6 +298,10 @@ public class MainActivity extends Activity {
     }
 
     private void showModule(String name) {
+        if (name.equals("Nuclei Scanner")) {
+            startActivity(new android.content.Intent(this, NucleiActivity.class));
+            return;
+        }
         heading(name.toUpperCase(Locale.ROOT));
 
         String description = "Modul pemeriksaan keamanan HEXON.";
@@ -422,7 +429,7 @@ public class MainActivity extends Activity {
                 consoleOutput.append(
                         "TCP Scanner: tersedia\n" +
                         "HTTPS Snapshot: tersedia\n" +
-                        "Nuclei: belum terintegrasi\n" +
+                        "Nuclei: modul Android ARM64 (cek Engine Manager)\n" +
                         "HTTPX: belum terintegrasi\n" +
                         "Subfinder: belum terintegrasi\n" +
                         "Naabu: belum terintegrasi\n" +

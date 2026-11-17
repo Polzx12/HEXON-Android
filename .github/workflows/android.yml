@@ -1,52 +1,61 @@
 name: HEXON Android Build
-
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 60
     steps:
       - name: Checkout HEXON
         uses: actions/checkout@v4
-
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27d
+          add-to-path: false
+      - name: Build Nuclei for Android ARM64
+        run: |
+          git clone --depth 1 https://github.com/projectdiscovery/nuclei.git nuclei-src
+          TOOLCHAIN="${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export GOOS=android GOARCH=arm64 CGO_ENABLED=1 ANDROID_NDK_HOME="${{ steps.ndk.outputs.ndk-path }}"
+          export CC="$TOOLCHAIN/aarch64-linux-android26-clang"
+          export CXX="$TOOLCHAIN/aarch64-linux-android26-clang++"
+          mkdir -p app/src/main/assets
+          cd nuclei-src
+          go mod download
+          go build -trimpath -ldflags="-s -w" -o "$GITHUB_WORKSPACE/app/src/main/assets/nuclei" ./cmd/nuclei
+          chmod 755 "$GITHUB_WORKSPACE/app/src/main/assets/nuclei"
+          file "$GITHUB_WORKSPACE/app/src/main/assets/nuclei"
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
-
       - name: Install Android SDK 35
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-
-      - name: Check Gradle
-        run: gradle --version
-
       - name: Build HEXON Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
-
       - name: Upload HEXON APK
         uses: actions/upload-artifact@v4
         with:
-          name: HEXON-debug-APK
+          name: HEXON-debug-APK-with-Nuclei
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
