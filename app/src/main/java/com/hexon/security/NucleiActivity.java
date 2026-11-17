@@ -23,7 +23,7 @@ public class NucleiActivity extends Activity {
     private final StringBuilder output=new StringBuilder();
 
     @Override public void onCreate(Bundle b){ super.onCreate(b); getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG); setupFiles(); build(); checkEngine(); }
-    private void setupFiles(){ engine=new File(getFilesDir(),"nuclei"); templateDir=new File(getFilesDir(),"nuclei-templates"); reportDir=new File(getFilesDir(),"nuclei-reports"); reportDir.mkdirs(); logFile=new File(reportDir,"latest.log"); }
+    private void setupFiles(){ engine=new File(getApplicationInfo().nativeLibraryDir,"libnuclei.so"); templateDir=new File(getFilesDir(),"nuclei-templates"); reportDir=new File(getFilesDir(),"nuclei-reports"); reportDir.mkdirs(); logFile=new File(reportDir,"latest.log"); }
     private void build(){
         ScrollView sc=new ScrollView(this); root=new LinearLayout(this); root.setOrientation(1); root.setPadding(dp(16),dp(12),dp(16),dp(24)); root.setBackgroundColor(BG); sc.addView(root); setContentView(sc);
         TextView title=text("⬡ NUCLEI SCANNER",23,GREEN,true); root.addView(title); root.addView(text("HEXON • TEMPLATE-BASED SECURITY ENGINE • ARM64",10,MUTED,true));
@@ -59,9 +59,12 @@ public class NucleiActivity extends Activity {
     private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
     private void render(String s){ runOnUiThread(()->{output.append(s).append('\n'); if(output.length()>60000)output.delete(0,output.length()-60000); console.setText(output.toString()); try(FileWriter w=new FileWriter(logFile,true)){w.write(s);w.write(System.lineSeparator());}catch(IOException e){android.util.Log.e("HEXON","Gagal menyimpan log",e);} }); }
     private void checkEngine(){
-        if(engine.exists() && engine.canExecute()){ status.setText("Engine: Nuclei ARM64 siap • "+engine.length()/1024/1024+" MB"); return; }
-        try(InputStream in=getAssets().open("nuclei"); FileOutputStream out=new FileOutputStream(engine)){ byte[] buf=new byte[65536]; int n; while((n=in.read(buf))>0)out.write(buf,0,n); out.flush(); engine.setExecutable(true,false); status.setText(engine.canExecute()?"Engine: Nuclei ARM64 siap":"Engine: gagal memberi izin eksekusi"); }
-        catch(Exception e){status.setText("Engine belum ada di APK. Build workflow harus menyertakan asset nuclei."); render("Engine asset tidak ditemukan: "+e.getMessage());}
+        if(engine.exists() && engine.canExecute()){
+            status.setText("Engine: Nuclei ARM64 siap • "+engine.length()/1024/1024+" MB");
+        } else {
+            status.setText("Engine ARM64 tidak ditemukan / tidak bisa dieksekusi");
+            render("Nuclei harus dipaketkan di jniLibs/arm64-v8a/libnuclei.so");
+        }
     }
     private boolean ready(){ if(running){toast("Engine sedang berjalan");return false;} if(!engine.exists()||!engine.canExecute()){checkEngine();toast("Binary Nuclei belum tersedia di APK");return false;} return true; }
     private void execute(List<String> args){ if(!ready())return; running=true; render("$ nuclei "+String.join(" ",args)); new Thread(()->{ try{ ArrayList<String> cmd=new ArrayList<>(); cmd.add(engine.getAbsolutePath()); cmd.addAll(args); ProcessBuilder pb=new ProcessBuilder(cmd); pb.redirectErrorStream(true); pb.environment().put("HOME",getFilesDir().getAbsolutePath()); pb.environment().put("NUCLEI_CONFIG_DIR",new File(getFilesDir(),".config/nuclei").getAbsolutePath()); process=pb.start(); try(BufferedReader r=new BufferedReader(new InputStreamReader(process.getInputStream()))){String line; while((line=r.readLine())!=null)render(line);} int code=process.waitFor(); render("Nuclei selesai. Exit code: "+code); }catch(Exception e){render("Engine error: "+e.getClass().getSimpleName()+": "+e.getMessage());}finally{running=false;process=null;}}).start(); }
