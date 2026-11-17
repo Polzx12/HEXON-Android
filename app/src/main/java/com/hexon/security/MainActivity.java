@@ -24,7 +24,8 @@ public class MainActivity extends Activity {
     private final int BORDER = Color.rgb(37, 65, 57);
 
     private LinearLayout root, page, nav;
-    private TextView logView;
+    private TextView logView, consoleOutput;
+    private EditText consoleInput;
     private EditText targetInput, portsInput;
     private CheckBox permissionCheck;
 
@@ -59,7 +60,7 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences("hexon_data", MODE_PRIVATE);
         buildShell();
         showPage("Dashboard");
-        append("HEXON 0.2.0 • Dashboard baru dibuka");
+        append("HEXON 0.3.0 • Dashboard baru dibuka");
     }
 
     private void buildShell() {
@@ -74,7 +75,7 @@ public class MainActivity extends Activity {
         LinearLayout brand = new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
 
-        TextView logo = text("⬡ HEXON", 27, GREEN, true);
+        TextView logo = text("⬡H HEXON", 27, GREEN, true);
         brand.addView(logo);
 
         TextView tagline = text(
@@ -119,6 +120,7 @@ public class MainActivity extends Activity {
         addNav("⌂", "Dashboard");
         addNav("▦", "Tools");
         addNav("⌕", "Scan");
+        addNav("⌘", "Console");
         addNav("≡", "Log");
     }
 
@@ -164,6 +166,9 @@ public class MainActivity extends Activity {
                 currentPage = name;
                 buildNav();
                 showScanner();
+                break;
+            case "Console":
+                showConsole();
                 break;
             case "Log":
             case "Scan History":
@@ -340,6 +345,134 @@ public class MainActivity extends Activity {
         });
     }
 
+
+    private void showConsole() {
+        heading("HEXON CONSOLE");
+        addNote("COMMAND INTERPRETER",
+                "Perintah internal HEXON saja. Bukan terminal Android atau Linux.");
+
+        consoleOutput = text(
+                "HEXON Console v0.3.0 siap.\nKetik help untuk bantuan.",
+                12, WHITE, false);
+        consoleOutput.setTypeface(Typeface.MONOSPACE);
+        consoleOutput.setPadding(dp(13), dp(13), dp(13), dp(13));
+        consoleOutput.setBackground(shape(PANEL, BORDER, 12));
+        page.addView(consoleOutput);
+
+        consoleInput = input("Perintah HEXON", "help");
+        page.addView(consoleInput);
+
+        Button execute = button("JALANKAN PERINTAH");
+        page.addView(execute);
+        execute.setOnClickListener(v -> runConsoleCommand());
+
+        consoleInput.setOnEditorActionListener((v, actionId, event) -> {
+            runConsoleCommand();
+            return true;
+        });
+
+        Button clear = button("BERSIHKAN CONSOLE");
+        clear.setBackground(shape(PANEL2, BORDER, 12));
+        clear.setTextColor(GREEN);
+        page.addView(clear);
+        clear.setOnClickListener(v ->
+                consoleOutput.setText("Console dibersihkan.\nKetik help."));
+    }
+
+    private void runConsoleCommand() {
+        if (consoleInput == null || consoleOutput == null) return;
+
+        String cmd = consoleInput.getText().toString()
+                .trim().toLowerCase(Locale.ROOT);
+
+        if (cmd.isEmpty()) {
+            toast("Masukkan perintah terlebih dahulu.");
+            return;
+        }
+
+        consoleOutput.append("\nhexon> " + cmd + "\n");
+
+        switch (cmd) {
+            case "help":
+                consoleOutput.append(
+                        "help          - daftar perintah\n" +
+                        "status        - status pemeriksaan\n" +
+                        "version       - versi HEXON\n" +
+                        "engines       - status engine\n" +
+                        "history       - activity log\n" +
+                        "report latest - laporan terakhir\n" +
+                        "stop          - hentikan pemeriksaan\n" +
+                        "clear         - bersihkan console\n" +
+                        "open dashboard/tools/scan/log\n");
+                break;
+
+            case "status":
+                consoleOutput.append(
+                        "Application: HEXON\n" +
+                        "Mode: SAFE MODE\n" +
+                        "Scan: " + (scanRunning ? "RUNNING" : "IDLE") + "\n");
+                break;
+
+            case "version":
+                consoleOutput.append(
+                        "HEXON Android v0.3.0\nArchitecture: ARM64\n");
+                break;
+
+            case "engines":
+                consoleOutput.append(
+                        "TCP Scanner: tersedia\n" +
+                        "HTTPS Snapshot: tersedia\n" +
+                        "Nuclei: belum terintegrasi\n" +
+                        "HTTPX: belum terintegrasi\n" +
+                        "Subfinder: belum terintegrasi\n" +
+                        "Naabu: belum terintegrasi\n" +
+                        "Katana: belum terintegrasi\n" +
+                        "FFUF: belum terintegrasi\n");
+                break;
+
+            case "history":
+                String history = prefs.getString("activity_log", "");
+                consoleOutput.append(history.isEmpty()
+                        ? "Belum ada activity log.\n" : history);
+                break;
+
+            case "report latest":
+                consoleOutput.append(
+                        "Laporan terstruktur belum tersedia.\n");
+                break;
+
+            case "stop":
+                stopScan();
+                consoleOutput.append("Permintaan STOP dikirim.\n");
+                break;
+
+            case "clear":
+                consoleOutput.setText("Console dibersihkan.\n");
+                break;
+
+            case "open dashboard":
+                showPage("Dashboard");
+                return;
+
+            case "open tools":
+                showPage("Tools");
+                return;
+
+            case "open scan":
+                showPage("Scan");
+                return;
+
+            case "open log":
+                showPage("Log");
+                return;
+
+            default:
+                consoleOutput.append(
+                        "Perintah tidak dikenal. Ketik help.\n");
+                break;
+        }
+    }
+
     private void showReports() {
         heading("REPORTS");
         addNote("LAPORAN PEMERIKSAAN",
@@ -353,7 +486,7 @@ public class MainActivity extends Activity {
     private void showSettings() {
         heading("PENGATURAN");
         addNote("INFORMASI APLIKASI",
-                "HEXON Android • Versi 0.2.0 • ARM64");
+                "HEXON Android • Versi 0.3.0 • ARM64");
         addNote("MODE KEAMANAN",
                 "Safe Mode aktif. Pemeriksaan membutuhkan konfirmasi izin target.");
         addNote("PENYIMPANAN",
@@ -577,7 +710,7 @@ public class MainActivity extends Activity {
                 conn.setReadTimeout(4000);
                 conn.setInstanceFollowRedirects(false);
                 conn.setRequestProperty(
-                        "User-Agent", "HEXON-Authorized-Audit/0.2");
+                        "User-Agent", "HEXON-Authorized-Audit/0.3");
 
                 int code = conn.getResponseCode();
                 Map<String, List<String>> headers =
