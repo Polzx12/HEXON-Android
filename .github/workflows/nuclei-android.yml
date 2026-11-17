@@ -1,0 +1,59 @@
+name: Build Nuclei Android ARM64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27d
+          add-to-path: false
+
+      - name: Checkout Nuclei
+        uses: actions/checkout@v4
+        with:
+          repository: projectdiscovery/nuclei
+          path: nuclei-src
+
+      - name: Build Android ARM64
+        working-directory: nuclei-src
+        env:
+          GOOS: android
+          GOARCH: arm64
+          CGO_ENABLED: '1'
+          ANDROID_API: '26'
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export CC="$TOOLCHAIN/aarch64-linux-android${ANDROID_API}-clang"
+          export CXX="$TOOLCHAIN/aarch64-linux-android${ANDROID_API}-clang++"
+
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          go mod download
+          go build -trimpath -ldflags="-s -w" \
+            -o "$GITHUB_WORKSPACE/dist/nuclei" ./cmd/nuclei
+
+          chmod +x "$GITHUB_WORKSPACE/dist/nuclei"
+          file "$GITHUB_WORKSPACE/dist/nuclei"
+
+      - name: Upload Nuclei binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-android-arm64
+          path: dist/nuclei
+          if-no-files-found: error
